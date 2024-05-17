@@ -37,29 +37,34 @@ def simple_svd(A, iter_count=10, nval=None):
     V = (A.T @ U) @ np.diag(1 / S)
     return U, S, V.T
 
-def advanced_power_iteration(A, iter_count, epsilon=1e-10):
-    """Computes the orthogonal matrix for A using QR iterations."""
+def qr_algorithm(A, max_iter=1000, tol=1e-10):
+    """Performs QR algorithm for eigenvalue decomposition."""
     n, _ = A.shape
-    ort = np.eye(n)
-
-    for _ in tqdm(range(iter_count)):
-        z = A @ ort
-        ort, tri = np.linalg.qr(z)
-        diff = np.sum(np.abs(np.diag(tri))) / np.sum(np.abs(tri))
-
-        if diff < epsilon:
+    Q_total = np.eye(n)
+    
+    for _ in tqdm(range(max_iter)):
+        Q, R = np.linalg.qr(A)
+        A = R @ Q
+        Q_total = Q_total @ Q
+        
+        if np.allclose(A - np.diag(np.diag(A)), 0, atol=tol):
             break
+    
+    eigenvalues = np.diag(A)
+    eigenvectors = Q_total
+    return eigenvalues, eigenvectors
 
-    return ort
-
-def advanced_svd(A, iter_count=10, nval=None):
-    """Computes the SVD using advanced QR iterations."""
-    m, n = A.shape
-    if nval is None or nval > min(m, n):
-        nval = min(m, n)
-
-    V = advanced_power_iteration(A.T @ A, iter_count)[:, :nval]
-    S = np.sqrt(np.maximum(np.diag(V.T @ A.T @ A @ V), 0))
+def svd_via_qr(A, max_iter=1000, tol=1e-10):
+    """Computes the SVD using the QR algorithm for eigenvalue decomposition."""
+    AtA = A.T @ A
+    eigenvalues, V = qr_algorithm(AtA, max_iter=max_iter, tol=tol)
+    
+    # Remove negative and zero eigenvalues
+    positive_indices = eigenvalues > 0
+    eigenvalues = eigenvalues[positive_indices]
+    V = V[:, positive_indices]
+    
+    S = np.sqrt(eigenvalues)
     U = A @ V @ np.linalg.inv(np.diag(S))
 
     return U, S, V.T
@@ -70,8 +75,8 @@ def compress_image_svd(image, method, compression):
     Rc, Gc, Bc = image[:,:,0].astype(np.float32), image[:,:,1].astype(np.float32), image[:,:,2].astype(np.float32)
     methods = {
         'numpy': lambda x: np.linalg.svd(x, full_matrices=False),
-        'simple': lambda x: simple_svd(x, iter_count=10, nval=min(x.shape)//compression),
-        'advanced': lambda x: advanced_svd(x, iter_count=10, nval=min(x.shape)//compression)
+        'simple': lambda x: simple_svd(x, iter_count=30, nval=min(x.shape)//compression),
+        'advanced': lambda x: svd_via_qr(x, max_iter=30, tol=1e-10)
     }
     Ur, Sr, Vr = methods[method](Rc)
     Ug, Sg, Vg = methods[method](Gc)
