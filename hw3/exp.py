@@ -8,7 +8,7 @@ def calculate_mse(imageA, imageB):
     err /= float(imageA.shape[0] * imageA.shape[1])
     return err
 
-original_image = np.array(Image.open("images/sample_1920×1280.bmp"))
+original_image = np.array(Image.open("images/snail.bmp"))
 
 compressed_data_numpy = main.compress_image_svd(original_image, 'numpy', compression=10)
 compressed_data_simple = main.compress_image_svd(original_image, 'simple', compression=10)
